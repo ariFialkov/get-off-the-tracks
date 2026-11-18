@@ -1,0 +1,21 @@
+{
+  "name": "get-off-the-tracks",
+  "version": "0.1.0",
+  "description": "Get Off the Tracks — a cinematic 3D runaway-train betting game (PWA)",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "build:single": "vite build --mode single",
+    "preview": "vite preview --host",
+    "rtp": "node scripts/rtp-sim.mjs"
+  },
+  "dependencies": {
+    "three": "^0.187.0"
+  },
+  "devDependencies": {
+    "vite": "^8.3.8",
+    "vite-plugin-singlefile": "^2.3.4"
+  }
+}

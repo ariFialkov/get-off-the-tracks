@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>Get Off the Tracks</title>
+  <meta name="description" content="A cinematic runaway-train betting game." />
+  <meta name="theme-color" content="#7fd0ff" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Off the Tracks" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+  <link rel="stylesheet" href="./src/style.css" />
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <div id="ui" data-mode="boot">
+    <div class="bar top" id="lb-top"></div>
+    <div class="bar bot" id="lb-bot"></div>
+
+    <header id="logo"><small>GET OFF</small><strong>THE TRACKS</strong><i></i></header>
+    <p id="prompt">click anywhere to place bet and play</p>
+
+    <div id="hud">
+      <div id="score">0.00</div>
+      <div id="mult">×0.00</div>
+    </div>
+    <div id="pops"></div>
+    <div id="title"></div>
+
+    <section id="result">
+      <h2 id="res-head">DERAILED</h2>
+      <div class="lbl">YOU WON</div>
+      <div id="res-win">0.00</div>
+      <div id="res-mult">×0.00</div>
+      <p id="again">click anywhere to play again</p>
+    </section>
+
+    <footer id="wallet" data-ui>
+      <div class="chip"><span>BALANCE</span><b id="balance">0.00</b></div>
+      <div class="chip bet"><button id="bet-dn" aria-label="lower bet">−</button><div><span>BET</span><b id="bet">1.00</b></div><button id="bet-up" aria-label="raise bet">+</button></div>
+      <div class="demo">DEMO CREDITS</div>
+    </footer>
+    <button id="mute" data-ui aria-label="toggle sound">♪</button>
+
+    <div id="wet"></div>
+    <div id="flash"></div>
+    <div id="fade" class="on"></div>
+  </div>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
