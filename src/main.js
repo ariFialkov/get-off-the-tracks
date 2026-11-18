@@ -1,3 +1,4 @@
+import { store } from './store.js';
 // Boot, renderer, sky/lighting and the tiny state machine: attract (menu) -> run -> result.
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
@@ -68,8 +69,8 @@ class Game {
     this.dir = new Director(this.camera);
     this.ui = new UI();
     this.audio = new Audio();
-    this.balance = Number(localStorage.getItem('gott.balance') ?? 1000);
-    this.betI = Number(localStorage.getItem('gott.bet') ?? 2);
+    this.balance = Number(store.get('gott.balance') ?? 1000);
+    this.betI = Number(store.get('gott.bet') ?? 2);
     this.ui.wallet(this.balance, BETS[this.betI]);
     this.state = 'boot'; this.world = null; this.idle = 0; this.busy = false;
 
@@ -84,7 +85,7 @@ class Game {
   bind() {
     const stop = (e) => e.stopPropagation();
     for (const el of document.querySelectorAll('[data-ui]')) { el.addEventListener('pointerdown', stop); el.addEventListener('click', stop); }
-    const bet = (d) => { this.betI = Math.max(0, Math.min(BETS.length - 1, this.betI + d)); localStorage.setItem('gott.bet', this.betI); this.ui.wallet(this.balance, BETS[this.betI]); this.audio.unlock(); this.audio.tick(); };
+    const bet = (d) => { this.betI = Math.max(0, Math.min(BETS.length - 1, this.betI + d)); store.set('gott.bet', this.betI); this.ui.wallet(this.balance, BETS[this.betI]); this.audio.unlock(); this.audio.tick(); };
     document.getElementById('bet-dn').addEventListener('click', () => bet(-1));
     document.getElementById('bet-up').addEventListener('click', () => bet(1));
     const mute = document.getElementById('mute');
@@ -138,7 +139,7 @@ class Game {
   roundEnd() {
     const o = this.outcome;
     this.balance = Math.round((this.balance + o.payout) * 100) / 100;
-    localStorage.setItem('gott.balance', this.balance);
+    store.set('gott.balance', this.balance);
     this.ui.wallet(this.balance, this.bet); this.ui.result(o.payout, o.multiplier, this.bet);
     this.ui.setMode('result'); this.ui.cinematic(false);
     this.audio.win(o.payout >= this.bet);

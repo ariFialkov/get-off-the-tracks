@@ -1,6 +1,7 @@
+import { store } from './store.js';
 // Tiny procedural sound kit (WebAudio, no assets). Created lazily on the first user gesture.
 export class Audio {
-  constructor() { this.ctx = null; this.muted = localStorage.getItem('gott.mute') === '1'; }
+  constructor() { this.ctx = null; this.muted = store.get('gott.mute') === '1'; }
   unlock() {
     if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
@@ -19,7 +20,7 @@ export class Audio {
     const hf = c.createBiquadFilter(); hf.type = 'lowpass'; hf.frequency.value = 220;
     this.hum.connect(hf).connect(this.humG).connect(this.master); this.hum.start();
   }
-  setMuted(m) { this.muted = m; localStorage.setItem('gott.mute', m ? '1' : '0'); if (this.master) this.master.gain.value = m ? 0 : 0.7; }
+  setMuted(m) { this.muted = m; store.set('gott.mute', m ? '1' : '0'); if (this.master) this.master.gain.value = m ? 0 : 0.7; }
   engine(speed, on, dark = 0) {
     if (!this.ctx) return;
     const t = this.ctx.currentTime, k = on ? Math.min(1.6, speed) : 0;
