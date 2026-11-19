@@ -28,7 +28,6 @@
       <strong>THE TRACKS</strong>
       <i><b></b><b></b><b></b></i>
     </header>
-    <p id="prompt">click anywhere to place bet and play</p>
 
     <div id="hud">
       <div class="lbl">TOTAL WIN</div>
@@ -53,11 +52,14 @@
       <p id="again">click anywhere to play again</p>
     </section>
 
-    <footer id="wallet" data-ui>
-      <div class="chip"><span>BALANCE</span><b id="balance">0.00</b></div>
-      <div class="chip bet"><button id="bet-dn" aria-label="lower bet">−</button><div><span>BET</span><b id="bet">1.00</b></div><button id="bet-up" aria-label="raise bet">+</button></div>
+    <div id="dock">
+      <p id="prompt">click anywhere to place bet and play</p>
+      <footer id="wallet">
+        <div class="chip" data-ui><span>BALANCE</span><b id="balance">0.00</b></div>
+        <div class="chip bet" data-ui><button id="bet-dn" aria-label="lower bet">−</button><div><span>BET</span><b id="bet">1.00</b></div><button id="bet-up" aria-label="raise bet">+</button></div>
+      </footer>
       <div class="demo">DEMO CREDITS</div>
-    </footer>
+    </div>
     <button id="mute" data-ui aria-label="toggle sound">♪</button>
 
     <div id="wet"></div>

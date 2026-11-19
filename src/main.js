@@ -117,8 +117,17 @@ class Game {
     const mute = document.getElementById('mute');
     mute.classList.toggle('off', this.audio.muted);
     mute.addEventListener('click', () => { this.audio.unlock(); this.audio.setMuted(!this.audio.muted); mute.classList.toggle('off', this.audio.muted); });
-    addEventListener('pointerdown', () => { this.audio.unlock(); if (this.state === 'menu' || this.state === 'result') this.play(); });
-    addEventListener('keydown', (e) => { if ((e.code === 'Space' || e.code === 'Enter') && (this.state === 'menu' || this.state === 'result')) { this.audio.unlock(); this.play(); } });
+    // Start on any tap/click anywhere. Several event types are listened for because some
+    // mobile browsers / in-app webviews don't deliver pointer events; a timestamp de-dupes them.
+    let lastGo = 0;
+    const go = (e) => {
+      if (e && e.target && e.target.closest && e.target.closest('[data-ui]')) return;
+      const now = performance.now(); if (now - lastGo < 450) return; lastGo = now;
+      this.audio.unlock();
+      if (this.state === 'menu' || this.state === 'result') this.play();
+    };
+    for (const type of ['pointerdown', 'touchstart', 'mousedown', 'click']) document.addEventListener(type, go, { passive: true });
+    addEventListener('keydown', (e) => { if (e.code === 'Space' || e.code === 'Enter') go(); });
     document.addEventListener('visibilitychange', () => { this.last = performance.now(); if (document.hidden) this.audio.engine(0, false); });
   }
 
@@ -161,11 +170,18 @@ class Game {
     this.busy = true; this.state = 'loading';
     this.ui.fade(true); this.ui.wallet(this.balance, bet);
     setTimeout(() => {
-      const plan = makePlan({ multiplier: out.multiplier, payout: out.payout, seed: out.seed, force: Q.get('ev') ? Q.get('ev').split(',') : null });
-      this.swap(plan);
-      if (Q.has('z')) this.world.train.place(Number(Q.get('z')));
-      this.ui.reset(); this.ui.setMode('run'); this.ui.fade(false);
-      this.state = 'run'; this.busy = false;
+      try {
+        const plan = makePlan({ multiplier: out.multiplier, payout: out.payout, seed: out.seed, force: Q.get('ev') ? Q.get('ev').split(',') : null });
+        this.swap(plan);
+        if (Q.has('z')) this.world.train.place(Number(Q.get('z')));
+        this.ui.reset(); this.ui.setMode('run'); this.ui.fade(false);
+        this.state = 'run'; this.busy = false;
+      } catch (err) { // never leave the player stuck on a blank screen: refund and return to the menu
+        console.error(err);
+        this.balance = Math.round((this.balance + bet) * 100) / 100; this.ui.wallet(this.balance, bet);
+        this.busy = false; this.startAttract(true);
+        this.ui.el.prompt.textContent = 'could not start — ' + (err && err.message ? err.message : 'error');
+      }
     }, 230);
   }
 
