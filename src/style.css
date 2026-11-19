@@ -163,3 +163,9 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #8fd3ff; fon
 }
 @media (max-height: 620px) and (orientation: portrait) { #result { padding: 16px 24px 16px; } #res-win { font-size: 46px; } }
 @media (prefers-reduced-motion: reduce) { .pop, .pop.big, #banner.show, #title.show { animation-duration: 1.2s; } }
+/* very narrow phones: stack the balance label over its value so both chips fit on one row */
+@media (max-width: 400px) {
+  .chip:not(.bet) { flex-direction: column; justify-content: center; gap: 0; padding: 4px 12px; text-align: center; }
+  .chip span { font-size: 9px; letter-spacing: .18em; } .chip button { width: 34px; height: 34px; }
+  #result { min-width: 0; width: 88vw; padding-left: 16px; padding-right: 16px; }
+}
