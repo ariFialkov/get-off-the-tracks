@@ -17,21 +17,35 @@
 </head>
 <body>
   <canvas id="c"></canvas>
-  <div id="ui" data-mode="boot">
+  <div id="ui" data-mode="boot" data-tier="0">
+    <div id="vig"></div>
     <div class="bar top" id="lb-top"></div>
     <div class="bar bot" id="lb-bot"></div>
+    <canvas id="fx"></canvas>
 
-    <header id="logo"><small>GET OFF</small><strong>THE TRACKS</strong><i></i></header>
+    <header id="logo">
+      <small>GET OFF</small>
+      <strong>THE TRACKS</strong>
+      <i><b></b><b></b><b></b></i>
+    </header>
     <p id="prompt">click anywhere to place bet and play</p>
 
     <div id="hud">
+      <div class="lbl">TOTAL WIN</div>
       <div id="score">0.00</div>
       <div id="mult">×0.00</div>
+      <div id="next"><div id="next-fill"></div><span id="next-lbl">NEXT ×0.5</span></div>
+    </div>
+    <div id="gauges">
+      <div class="g"><b id="speed">0</b><span>KM/H</span></div>
+      <div class="g"><b id="dist">0.00</b><span>KM</span></div>
     </div>
     <div id="pops"></div>
+    <div id="banner"></div>
     <div id="title"></div>
 
     <section id="result">
+      <div id="res-stars"></div>
       <h2 id="res-head">DERAILED</h2>
       <div class="lbl">YOU WON</div>
       <div id="res-win">0.00</div>

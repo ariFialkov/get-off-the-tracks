@@ -1,7 +1,7 @@
 // Tiny procedural modelling kit: every asset in the game is built from painted primitives
 // merged into a single vertex-coloured geometry, so the whole world shares a few materials.
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 export const C = {
@@ -26,11 +26,45 @@ export function paint(g, color) {
   g.setAttribute('color', new THREE.BufferAttribute(a, 3));
   return g;
 }
+// Geometry detail multiplier (set once at boot from the quality tier).
+export let DETAIL = 1;
+export const setDetail = (k) => { DETAIL = k; };
+const sg = (n) => (n < 6 ? n : Math.max(6, Math.round(n * DETAIL)));
 export const box = (w, h, d, c, r = 0) =>
-  paint(r > 0 ? new RoundedBoxGeometry(w, h, d, 2, Math.min(r, w / 2, h / 2, d / 2) * 0.99) : new THREE.BoxGeometry(w, h, d), c);
-export const cyl = (rt, rb, h, c, seg = 10) => paint(new THREE.CylinderGeometry(rt, rb, h, seg), c);
-export const cone = (r, h, c, seg = 10) => paint(new THREE.ConeGeometry(r, h, seg), c);
-export const sph = (r, c, ws = 12, hs = 8) => paint(new THREE.SphereGeometry(r, ws, hs), c);
+  paint(r > 0 ? new RoundedBoxGeometry(w, h, d, DETAIL > 1 ? 4 : 3, Math.min(r, w / 2, h / 2, d / 2) * 0.99) : new THREE.BoxGeometry(w, h, d), c);
+export const cyl = (rt, rb, h, c, seg = 14) => paint(new THREE.CylinderGeometry(rt, rb, h, sg(seg)), c);
+export const cone = (r, h, c, seg = 14) => paint(new THREE.ConeGeometry(r, h, sg(seg)), c);
+export const sph = (r, c, ws = 16, hs = 12) => paint(new THREE.SphereGeometry(r, sg(ws), sg(hs)), c);
+// Organic lump: a subdivided icosphere pushed around by smooth noise (foliage, rocks, clouds, wool).
+export function blob(r, c, rough = 0.14, seed = 1, detail = 2) {
+  let g = new THREE.IcosahedronGeometry(1, DETAIL > 1 ? detail : Math.max(1, detail - 1));
+  g.deleteAttribute('uv'); g.deleteAttribute('normal');
+  g = mergeVertices(g, 1e-4);
+  const p = g.attributes.position, f = 2.3;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+    const n = Math.sin(x * f + seed) * Math.sin(y * f * 1.2 + seed * 2.1) * Math.sin(z * f * 0.9 + seed * 3.3) + 0.5 * Math.sin(x * f * 2.1 + seed * 5) * Math.sin(z * f * 2.3 + y * 2 + seed);
+    const k = r * (1 + rough * n);
+    p.setXYZ(i, x * k, y * k, z * k);
+  }
+  g.computeVertexNormals();
+  return paint(g, c);
+}
+// Gabled-roof prism (ridge along z), softly bevelled. Base centred at y = 0.
+export function prism(w, h, d, c) {
+  const s = new THREE.Shape(); s.moveTo(-w / 2, 0); s.lineTo(0, h); s.lineTo(w / 2, 0); s.lineTo(-w / 2, 0);
+  const g = new THREE.ExtrudeGeometry(s, { depth: d, bevelEnabled: true, bevelSize: 0.12, bevelThickness: 0.12, bevelSegments: 2 });
+  g.translate(0, 0, -d / 2);
+  return paint(g, c);
+}
+// Bake a soft ground-to-top gradient into vertex colours (cheap ambient occlusion).
+export function shade(g, lo = 0.74, hi = 1.07) {
+  g.computeBoundingBox();
+  const y0 = g.boundingBox.min.y, h = Math.max(0.001, g.boundingBox.max.y - y0), p = g.attributes.position, c = g.attributes.color;
+  for (let i = 0; i < p.count; i++) { const t = Math.min(1, (p.getY(i) - y0) / h), k = lo + (hi - lo) * Math.sqrt(t); c.setXYZ(i, c.getX(i) * k, c.getY(i) * k, c.getZ(i) * k); }
+  return g;
+}
+export const tint = (hex, toward, t) => new THREE.Color(hex).lerp(new THREE.Color(toward), t).getHex();
 export const merge = (list) => mergeGeometries(list.filter(Boolean), false);
 
 export const MAT = {
@@ -42,9 +76,35 @@ export const MAT = {
   sleeper: new THREE.MeshLambertMaterial({ color: 0x7a6656 }),
   tube: new THREE.MeshBasicMaterial({ color: 0x10141b, side: THREE.DoubleSide }),
   cloud: new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false, transparent: true, opacity: 0.92 }),
-  water: new THREE.MeshPhongMaterial({ color: 0x3fb8ec, shininess: 120, specular: 0xaaddff, transparent: true, opacity: 0.9 }),
+  water: null,
 };
 MAT.glow.color.setScalar(2.4);
+// Animated stylised water: rolling two-tone swell, glints and foam flecks, fog-aware.
+MAT.water = new THREE.ShaderMaterial({
+  transparent: true, fog: true,
+  uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { t: { value: 0 }, deep: { value: new THREE.Color(0x1f8fdc) }, shallow: { value: new THREE.Color(0x5fd6f5) } }]),
+  vertexShader: `varying vec3 vW;
+    #include <fog_pars_vertex>
+    void main(){ vec4 wp = modelMatrix * vec4(position, 1.0); vW = wp.xyz; vec4 mvPosition = viewMatrix * wp; gl_Position = projectionMatrix * mvPosition;
+      #include <fog_vertex>
+    }`,
+  fragmentShader: `uniform float t; uniform vec3 deep, shallow; varying vec3 vW;
+    #include <fog_pars_fragment>
+    void main(){
+      vec2 p = vW.xz * 0.05;
+      float w = sin(p.x * 1.3 + t * 0.7 + sin(p.y * 0.9 + t * 0.4) * 1.6) * sin(p.y * 1.7 - t * 0.5 + sin(p.x * 1.1 - t * 0.3) * 1.4);
+      float w2 = sin(p.x * 4.1 - t * 1.1 + w * 2.0) * sin(p.y * 3.7 + t * 0.9);
+      vec3 col = mix(deep, shallow, 0.5 + 0.38 * w + 0.12 * w2);
+      float glint = smoothstep(0.9, 1.0, sin(p.x * 9.0 + t * 1.6 + w * 4.0) * sin(p.y * 11.0 - t * 1.3 + w2));
+      float foam = smoothstep(0.8, 0.98, w * w2 + 0.25 * w);
+      float near = smoothstep(520.0, 60.0, distance(cameraPosition, vW));
+      col += vec3(1.0) * (glint * 0.75 + foam * 0.28) * (0.25 + 0.75 * near);
+      gl_FragColor = vec4(col, 0.93);
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
+      #include <fog_fragment>
+    }`,
+});
 
 // Sweep a 2-D profile ([lateral, up] points) along the track between z0 and z1.
 // `center(z)` returns {x,y}; the profile is laid out perpendicular to the path.

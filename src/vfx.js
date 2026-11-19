@@ -138,6 +138,15 @@ export class VFX {
     this.sparks(p, Math.round(26 * s), { speed: 45 * s, vel });
     this.ring(p, 0xffe0a0, 30 * s);
   }
+  // festive colour burst: glowing motes in the given palette (linear rgb triples)
+  stars(p, n = 14, colors = [[3, 2.2, 0.5]], o = {}) {
+    const { speed = 22, vel = null, life = 0.9, size = 0.7, up = 1 } = o;
+    for (let i = 0; i < n; i++) {
+      const a = R(0, 6.28), e = R(-0.2, 1) * up, sp = speed * R(0.35, 1), c = colors[Math.floor(Math.random() * colors.length)];
+      this.add.spawn(p.x + R(-1, 1), p.y + R(0, 2), p.z + R(-1, 1), (vel ? vel.x : 0) + Math.cos(a) * sp, (vel ? vel.y : 0) + e * sp + 4, (vel ? vel.z : 0) + Math.sin(a) * sp,
+        life * R(0.6, 1.3), size * R(0.6, 1.4), size * 0.2, c[0], c[1], c[2], 1, 9, 1.2, Math.random() < 0.4 ? 0.02 : 0);
+    }
+  }
   splash(p, s = 1, vel = null) {
     for (let i = 0; i < 26 * s; i++) {
       const a = R(0, 6.28), sp = R(3, 14) * s;

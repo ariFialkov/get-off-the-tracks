@@ -1,6 +1,6 @@
 // Hand-built props for the set-pieces: smashables, bridges, tunnels, vehicles, the whale…
 import * as THREE from 'three';
-import { C, MAT, box, cyl, cone, sph, merge, sweep, archProfile, archWall } from './kit.js';
+import { C, MAT, box, cyl, cone, sph, blob, merge, sweep, archProfile, archWall } from './kit.js';
 import { Breakable } from './vfx.js';
 import { RAIL_H } from './track.js';
 
@@ -110,12 +110,12 @@ export function megaBuffer() {
   const grp = new THREE.Group(); grp.add(m, gl); return grp;
 }
 export function boulder(rockCol) {
-  const g = [sph(9, rockCol, 9, 7).scale(1.15, 0.95, 1).translate(0, 6.5, 9.5), sph(4.5, C.rockD, 7, 5).translate(-9, 2.5, 4), sph(3.6, C.rockD, 7, 5).translate(9.5, 2, 6), sph(2.4, rockCol, 6, 5).translate(5, 1.4, -1), sph(2, rockCol, 6, 5).translate(-5.5, 1.2, -0.5)];
-  const m = new THREE.Mesh(merge(g), new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })); m.castShadow = true; return m;
+  const g = [blob(9.4, rockCol, 0.22, 3, 3).scale(1.15, 0.95, 1).translate(0, 6.5, 9.5), blob(4.5, C.rockD, 0.25, 5).translate(-9, 2.5, 4), blob(3.6, C.rockD, 0.25, 7).translate(9.5, 2, 6), blob(2.4, rockCol, 0.25, 9).translate(5, 1.4, -1), blob(2, rockCol, 0.25, 11).translate(-5.5, 1.2, -0.5), blob(1.2, C.rockD, 0.25, 13).translate(2, 0.7, -2.5)];
+  const m = new THREE.Mesh(merge(g), MAT.solid); m.castShadow = true; return m;
 }
 export function crater() {
-  const g = [cyl(8, 9.5, 0.5, C.ink, 14).translate(0, 0.2, 6)];
-  for (let i = 0; i < 12; i++) { const a = (i / 12) * PI * 2; g.push(sph(R(1, 2.2), i % 2 ? C.rockD : C.dark, 6, 5).translate(Math.cos(a) * 8.6, 0.6, 6 + Math.sin(a) * 8.6)); }
+  const g = [cyl(8, 9.5, 0.5, C.ink, 24).translate(0, 0.2, 6)];
+  for (let i = 0; i < 12; i++) { const a = (i / 12) * PI * 2; g.push(blob(R(1, 2.2), i % 2 ? C.rockD : C.dark, 0.28, i).translate(Math.cos(a) * 8.6, 0.6, 6 + Math.sin(a) * 8.6)); }
   for (const s of [-1, 1]) g.push(box(0.24, 0.3, 10, C.steel).rotateX(-0.5 * s).rotateZ(0.5 * s).translate(s * 2.2, 3, 2));
   const m = new THREE.Mesh(merge(g), MAT.solid); m.castShadow = true; return m;
 }

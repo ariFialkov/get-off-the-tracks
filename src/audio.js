@@ -49,5 +49,6 @@ export class Audio {
   thunder() { this.burst(2.2, 500, 50, 0.9); this.burst(0.15, 6000, 1500, 0.5, 'highpass'); }
   tick(a = 1) { this.burst(0.05, 3000, 1500, 0.2 * a, 'highpass'); }
   coin(big) { this.tone(big ? 660 : 880, big ? 660 : 880, 0.09, 0.16, 'triangle'); this.tone(big ? 990 : 1320, big ? 990 : 1320, 0.2, 0.16, 'triangle', 0.08); if (big) this.tone(1320, 1320, 0.35, 0.16, 'triangle', 0.17); }
+  milestone(t) { const base = 392 * Math.pow(1.122, Math.max(0, t) * 2); [1, 1.26, 1.5, 2].forEach((k, i) => this.tone(base * k, base * k, 0.28, 0.2, 'triangle', i * 0.07)); this.burst(0.5, 2000, 7000, 0.12, 'highpass'); }
   win(good) { (good ? [523, 659, 784, 1047] : [392, 330]).forEach((f, i) => this.tone(f, f, 0.3, 0.2, 'triangle', i * 0.11)); }
 }

@@ -5,9 +5,11 @@ import { C, MAT, box } from './kit.js';
 import { win, smooth, clamp, RAIL_H } from './track.js';
 import { getProtos, MODULES, ALPINE, VALLEY } from './props.js';
 
-const LX = [-330, -250, -180, -130, -95, -70, -52, -38, -27, -19, -13, -9, -6, -3, 0, 3, 6, 9, 13, 19, 27, 38, 52, 70, 95, 130, 180, 250, 330];
+const HALF = [0, 3, 6, 9, 12, 16, 21, 27, 34, 42, 52, 64, 78, 95, 115, 140, 170, 205, 250, 330];
+const LX = [...HALF.slice(1).reverse().map((v) => -v), ...HALF];
 export const CL = 96;
-const NZ = 16, DZ = CL / NZ;
+const NZ = 24;
+export const DZ = CL / NZ;
 
 function hash(i, j, s) {
   let h = (Math.imul(i, 374761393) + Math.imul(j, 668265263) + Math.imul(s, 982451653)) | 0;
@@ -22,6 +24,22 @@ function noise(x, y, s) {
 }
 
 const sleeperGeo = new THREE.BoxGeometry(3.3, 0.2, 0.62);
+// soft mottled detail map multiplied over the vertex colours (grass / gravel grain)
+let _tex;
+function groundTexture() {
+  if (_tex) return _tex;
+  const N = 256, c = document.createElement('canvas'); c.width = c.height = N;
+  const x = c.getContext('2d'), im = x.createImageData(N, N);
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const u = i / N * 6.283, v = j / N * 6.283;
+    let n = Math.sin(u * 3 + Math.sin(v * 2) * 1.5) * Math.sin(v * 4 + Math.sin(u * 3) * 1.2) * 0.5 + Math.sin(u * 9 + v * 7) * Math.sin(v * 11 - u * 5) * 0.3 + (hash(i >> 1, j >> 1, 7) - 0.5) * 0.25;
+    const g = Math.max(0, Math.min(255, 236 + n * 22));
+    im.data.set([g, g, g, 255], (j * N + i) * 4);
+  }
+  x.putImageData(im, 0, 0);
+  _tex = new THREE.CanvasTexture(c); _tex.wrapS = _tex.wrapT = THREE.RepeatWrapping; _tex.colorSpace = THREE.SRGBColorSpace; _tex.anisotropy = 4;
+  return _tex;
+}
 const _d = new THREE.Object3D(), _col = new THREE.Color(), _c2 = new THREE.Color();
 
 export class Terrain {
@@ -30,7 +48,7 @@ export class Terrain {
     this.protos = getProtos(biome);
     this.group = new THREE.Group(); parent.add(this.group);
     this.chunks = new Map();
-    this.mat = new THREE.MeshLambertMaterial({ vertexColors: true });
+    this.mat = new THREE.MeshLambertMaterial({ vertexColors: true, map: groundTexture() });
     this.roadMat = new THREE.MeshLambertMaterial({ color: C.asphalt });
     this.mainLine = { z0: -1e9, z1: 1e9, off: (z) => track.weave(z), main: true };
   }
@@ -43,7 +61,7 @@ export class Terrain {
       const w = win(z, zn.z0, zn.z1, zn.edge);
       switch (zn.type) {
         case 'flat': flat = Math.max(flat, w * (1 - smooth(zn.width, zn.width * 2.2, a))); break;
-        case 'drop': add -= zn.amt * w; dropW = Math.max(dropW, w); break;
+        case 'drop': if (zn.base == null) zn.base = t.Y((zn.z0 + zn.z1) / 2); add -= (zn.amt + t.Y(z) - zn.base) * w; dropW = Math.max(dropW, w); break; // level floor
         case 'cover': add += zn.amt * w * (0.7 + 0.45 * noise(x * 0.007, z * 0.007, s + 5)); break;
         case 'rise': add += zn.amt * w * smooth(zn.start, zn.start + zn.width, zn.side * lx) * (0.8 + 0.3 * noise(x * 0.01, z * 0.01, s + 6)); break;
         case 'sink': add -= zn.amt * w * smooth(zn.start, zn.start + zn.width, zn.side * lx); break;
@@ -51,7 +69,7 @@ export class Terrain {
     }
     const hills = (noise(x * 0.011, z * 0.011, s) * 13 + noise(x * 0.035, z * 0.035, s + 1) * 3) * smooth(8, 60, a);
     const far = smooth(120, 300, a) * (30 + 75 * noise(x * 0.004, z * 0.004, s + 2));
-    return t.Y(z) + (hills * (1 - 0.9 * dropW) + far) * (1 - flat) + add;
+    return t.Y(z) + (hills * (1 - 0.9 * dropW) + far * (1 - 0.92 * dropW * (1 - smooth(200, 310, a)))) * (1 - flat) + add;
   }
   zoneInfo(z, side) {
     const o = { drop: 0, water: false, alpine: false, none: false, clear: 0, busy: false };
@@ -91,13 +109,15 @@ export class Terrain {
       DW[j] = dw;
       for (let i = 0; i < NC; i++) H[j * NC + i] = this.h(x0 + LX[i], z);
     }
-    const pos = new Float32Array((NZ + 1) * NC * 3), nor = new Float32Array((NZ + 1) * NC * 3), col = new Float32Array((NZ + 1) * NC * 3);
+    const pos = new Float32Array((NZ + 1) * NC * 3), nor = new Float32Array((NZ + 1) * NC * 3), col = new Float32Array((NZ + 1) * NC * 3), uv = new Float32Array((NZ + 1) * NC * 2);
+    const fields = b.fields.map((c) => new THREE.Color(c)), rockB = new THREE.Color(b.rock).multiplyScalar(0.72);
     const rockC = new THREE.Color(b.rock), ballast = new THREE.Color(C.ballast), sand = new THREE.Color(C.sand), snow = new THREE.Color(0xffffff);
     for (let j = 1; j <= NZ + 1; j++) {
       const z = z0 + (j - 1) * DZ, dX = (XS[j + 1] - XS[j - 1]) / (2 * DZ), ty = t.Y(z);
       for (let i = 0; i < NC; i++) {
         const k = ((j - 1) * NC + i) * 3, y = H[j * NC + i], x = XS[j] + LX[i];
         pos[k] = x; pos[k + 1] = y; pos[k + 2] = z;
+        const ku = ((j - 1) * NC + i) * 2; uv[ku] = x / 14; uv[ku + 1] = z / 14;
         const il = Math.max(0, i - 1), ir = Math.min(NC - 1, i + 1);
         const hx = (H[j * NC + ir] - H[j * NC + il]) / (LX[ir] - LX[il]);
         const hz = (H[(j + 1) * NC + i] - H[(j - 1) * NC + i]) / (2 * DZ) - hx * dX;
@@ -105,10 +125,15 @@ export class Terrain {
         nor[k] = -hx * inv; nor[k + 1] = inv; nor[k + 2] = -hz * inv;
         _col.set(b.grassA).lerp(_c2.set(b.grassB), noise(x * 0.03, z * 0.03, this.seed + 9));
         const steep = smooth(0.82, 0.6, inv);
-        _col.lerp(_c2.copy(rockC).multiplyScalar(0.78 + 0.3 * noise(x * 0.05, y * 0.09, this.seed + 3)), steep);
+        const a = Math.abs(LX[i]);
+        // patchwork farmland further out, soft meadow variation close in
+        if (a > 46) { const f = fields[Math.floor(hash(Math.floor(x / 58), Math.floor(z / 58), this.seed + 31) * fields.length)]; _col.lerp(f, 0.6 * smooth(46, 70, a) * (1 - smooth(60, 110, y - ty))); }
+        _col.multiplyScalar(0.9 + 0.2 * noise(x * 0.09, z * 0.09, this.seed + 4));
+        // layered rock on the steep faces
+        const band = 0.5 + 0.5 * Math.sin(y * 0.42 + noise(x * 0.03, z * 0.03, this.seed + 3) * 5);
+        _col.lerp(_c2.copy(rockC).lerp(rockB, smooth(0.35, 0.65, band)), steep);
         _col.lerp(snow, smooth(95, 140, y - ty) * 0.85);
         if (DW[j] > 0.5 && y < ty - 20) _col.lerp(sand, 0.35 * (1 - steep));
-        const a = Math.abs(LX[i]);
         if (a <= 6 && CV[j] < 0.01) _col.lerp(ballast, (a <= 3 ? 1 : 0.45) * clamp(1 - DW[j] * 3));
         col[k] = _col.r; col[k + 1] = _col.g; col[k + 2] = _col.b;
       }
@@ -127,6 +152,7 @@ export class Terrain {
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
     geo.setIndex(idx);
     const mesh = new THREE.Mesh(geo, this.mat); mesh.receiveShadow = true; mesh.userData.own = true;
     g.add(mesh);
@@ -217,6 +243,12 @@ export class Terrain {
           put(name, x, y - 0.15, z, side > 0 ? rot : Math.PI - rot, sc * (0.9 + 0.25 * hash(Math.round(z), Math.round(lx), this.seed)));
         }
       }
+      // grass tufts tidy along the ballast edge
+      for (const side of [-1, 1]) {
+        const info = this.zoneInfo(zm, side);
+        if (info.busy || zs < 160) continue;
+        for (let k = 0; k < 12; k++) { const z = zs + k * 4 + 1, r = hash(Math.round(z), side, this.seed + 55); if (r < 0.7) { const x = t.X0(z) + side * (7.6 + r * 2.4); put('tuft', x, this.h(x, z) - 0.05, z, r * 6, 0.8 + r); } }
+      }
       // catenary gantries on open plain track
       if (zs > 320 && !t.busy(zm) && !t.inGap(zm) && !t.noPoles.some((r) => zm > r[0] && zm < r[1])) put('gantry', t.X(zm), t.Y(zm), zm, Math.atan2(t.X(zm + 1) - t.X(zm - 1), 2), 1);
       // clouds
@@ -228,7 +260,10 @@ export class Terrain {
     for (const [name, mats] of inst) {
       const p = this.protos[name];
       const im = new THREE.InstancedMesh(p.geo, p.mat === 'cloud' ? MAT.cloud : MAT.solid, mats.length);
-      mats.forEach((m, i) => im.setMatrixAt(i, m));
+      mats.forEach((m, i) => {
+        im.setMatrixAt(i, m);
+        if (p.tint) { const r = hash(Math.round(m.elements[12]), Math.round(m.elements[14]), 91), q = hash(Math.round(m.elements[14]), Math.round(m.elements[12]), 17); im.setColorAt(i, _col.setRGB(1 - p.tint + r * p.tint * 1.6, 1 - p.tint * 0.6 + q * p.tint * 1.2, 1 - p.tint + r * p.tint)); }
+      });
       im.castShadow = p.shadow; im.receiveShadow = false;
       g.add(im);
       if (p.glow) { const gm = new THREE.InstancedMesh(p.glow, MAT.glow, mats.length); mats.forEach((m, i) => gm.setMatrixAt(i, m)); g.add(gm); }

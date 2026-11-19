@@ -8,6 +8,7 @@ import { makeFrame, win, RAIL_H } from './track.js';
 
 const _f = makeFrame();
 const R = (a, b) => a + Math.random() * (b - a);
+const PARTY3 = [[3.2, 2.3, 0.5], [3, 0.8, 0.7], [0.4, 2.6, 2.4], [0.7, 1.6, 3.2], [3, 1.4, 2.2], [2.6, 2.6, 2.6]];
 
 export class World {
   constructor(game, plan) {
@@ -57,6 +58,8 @@ export class World {
       this.vfx.debris(p, o.n ?? 22, o.colors || [0xffffff], { vel, groundY: p.y - 2, size: o.glass ? 0.5 : 0.85 });
       this.vfx.puff(p, Math.round(10 * big), { size: 4 * big, vel: this.fwd.clone().multiplyScalar(sp * 0.3) });
       this.vfx.sparks(p, 14, { vel });
+      this.vfx.stars(p, Math.round(14 * big), PARTY3, { vel: vel.clone().multiplyScalar(0.9), speed: 26 });
+      this.vfx.ring(p, 0xfff0a0, 14 * big, 0.4);
       if (o.splash) this.vfx.splash(p.clone().add(new THREE.Vector3(0, 4, 0)), 2.6, vel.clone().multiplyScalar(0.6));
       this.dir.shake(0.3 + 0.22 * big); this.audio.smash(big);
     });
@@ -131,11 +134,41 @@ export class World {
       for (let i = 0; i < n; i++) this.vfx.soft.spawn(c.x + R(-45, 45) + this.fwd.x * 40, c.y + R(8, 30), c.z + R(-10, 90), -8, -75, 0, 0.5, 0.16, 0.16, 0.8, 0.9, 1, 0.5, 0, 0, 0.035);
     }
     this.audio.engine(tr.speed / 78 * this.timeScale, this.state === 'run', this.dark);
+    this.ambient(dt);
 
     this.vfx.update(dt);
     this.dir.update(dtReal);
     const c = this.camera.position;
     this.terrain.update(Math.min(hz - tr.len, c.z), Math.max(hz, c.z));
+  }
+
+  // always-on motion dressing: wind streaks past the lens, sparks off the wheels, and a
+  // glowing slipstream that heats up as the win multiplier climbs
+  ambient(dt) {
+    if (this.state !== 'run' || dt <= 0) return;
+    const tr = this.train, c = this.camera.position, v = tr.speed, f = this.fwd, l = this.lat, vfx = this.vfx;
+    if (tr.z < 150 && !this.plan.attract) return;
+    const inTube = this.dark > 0.5;
+    if (!inTube) for (let i = 0; i < 2; i++) {
+      const s = Math.random() < 0.5 ? -1 : 1, d = R(40, 150), o = R(5, 26) * s;
+      vfx.add.spawn(c.x + f.x * d + l.x * o, c.y + R(-6, 9), c.z + f.z * d + l.z * o, -f.x * v * 0.5, 0, -f.z * v * 0.5, 0.5, 0.1, 0.1, 1.4, 1.5, 1.6, 0.3, 0, 0, 0.09);
+    }
+    const heat = this.plan.attract ? 0.4 : Math.min(1, Math.log10(1 + (this.score / this.plan.payout) * this.plan.multiplier * 3) / 2);
+    this._acc = (this._acc || 0) + dt;
+    if (this._acc > 0.03) {
+      this._acc = 0;
+      const air = this.track.airborne(tr.z - 10);
+      for (const car of tr.cars) {
+        const p = car.obj.position, s = Math.random() < 0.5 ? -1 : 1;
+        if (!air && Math.random() < 0.35) vfx.add.spawn(p.x + l.x * s * 1 + f.x * R(-7, 7), p.y + 0.15, p.z + l.z * s + f.z * R(-7, 7), f.x * v * 0.5 + l.x * s * R(2, 8), R(1, 6), f.z * v * 0.5 + l.z * s * R(2, 8), R(0.15, 0.4), 0.22, 0.08, 4, 2.4, 0.7, 1, 22, 0.5, 0.03);
+        if (heat > 0.25 && Math.random() < heat) {
+          const hot = heat > 0.75;
+          vfx.add.spawn(p.x + l.x * s * 1.6 + f.x * R(-9, 9), p.y + R(0.8, 3.4), p.z + l.z * s * 1.6 + f.z * R(-9, 9), f.x * v * 0.82, R(-0.5, 1.5), f.z * v * 0.82, R(0.25, 0.5), 0.5, 0.15, hot ? 3.4 : 0.6, hot ? 2.2 : 2.4, hot ? 0.6 : 3.2, 0.55 * heat, 0, 0, 0.05);
+        }
+      }
+      const tail = tr.cars[tr.cars.length - 1].obj.position;
+      if (!air && !inTube) vfx.puff(tail, 1, { size: 2.2, spread: 1.2, up: 2, life: 0.9, alpha: 0.22, vel: f.clone().multiplyScalar(v * 0.35) });
+    }
   }
 
   derail() {

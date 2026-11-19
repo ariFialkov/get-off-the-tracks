@@ -12,6 +12,8 @@
     "rtp": "node scripts/rtp-sim.mjs"
   },
   "dependencies": {
+    "@fontsource/chakra-petch": "^5.3.0",
+    "@fontsource/russo-one": "^5.3.0",
     "three": "^0.187.0"
   },
   "devDependencies": {

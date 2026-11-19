@@ -2,10 +2,11 @@
 // camera cues, slow-mo and score bonuses on the planner `P`, and registers a lazy
 // `build(W)` that spawns its props/actors when the train gets near.
 import * as THREE from 'three';
-import { C, MAT, box, cyl, cone, sph, merge } from './kit.js';
+import { C, MAT, box, cyl, cone, sph, blob, merge } from './kit.js';
 import { Breakable } from './vfx.js';
 import { smooth, smoother, lerp, clamp, RAIL_H } from './track.js';
 import { Train } from './train.js';
+import { DZ } from './terrain.js';
 import * as M from './models.js';
 
 const PI = Math.PI;
@@ -43,7 +44,7 @@ function tunnel(W, z0, z1, o = {}) {
   for (const [edge, dir, on] of [[z0, 1, o.a !== false], [z1, -1, o.b !== false]]) {
     if (!on) continue;
     let zf = edge; // first terrain row where the hillside clears the tube
-    for (let k = 0; k < 8; k++) { zf = (dir > 0 ? Math.ceil(edge / 6) : Math.floor(edge / 6)) * 6 + dir * k * 6; if (T.cover(zf) >= 11) break; }
+    for (let k = 0; k < 12; k++) { zf = (dir > 0 ? Math.ceil(edge / DZ) : Math.floor(edge / DZ)) * DZ + dir * k * DZ; if (T.cover(zf) >= 11) break; }
     const a = Math.min(edge - dir * 3, zf + dir), b = Math.max(edge - dir * 3, zf + dir);
     W.add(new THREE.Mesh(M.sweep(ctr, a, b, 3, M.HOOD), hoodMat), true);
     const ring = new THREE.Mesh(ringGeo, ringMat); W.place(ring, edge - dir * 3, 0, 0);
@@ -68,6 +69,7 @@ function landing(W, z, big = 1) {
   W.on(z, () => {
     const p = W.train.head.clone(), v = W.fwd.clone().multiplyScalar(W.train.speed * 0.5);
     W.vfx.puff(p, 16 * big, { size: 4, spread: 4, vel: v, up: 6 }); W.vfx.sparks(p, 40 * big, { vel: v, speed: 30 });
+    W.vfx.stars(p, 20 * big, [[3.2, 2.3, 0.5], [0.5, 2.6, 2.4], [3, 1, 0.8]], { vel: v, speed: 24 }); W.vfx.ring(p, 0xfff0a0, 22 * big, 0.5);
     W.dir.shake(0.7 * big); W.audio.thud(1);
     let n = 0; W.actor((dt) => { const c = W.train.cars[1 + n]; if (!c) return false; if (W.train.z - c.back > z) { W.vfx.puff(c.obj.position, 8, { size: 3.5, vel: v }); W.vfx.sparks(c.obj.position, 14, { vel: v }); W.dir.shake(0.25); n++; } });
   });
@@ -99,7 +101,7 @@ export function intro(P) {
     W.place(b.group, 3.2);
     W.smash(3, b, { power: 0.75, up: 22, spread: 20, colors: tones, n: 30, big: 1.2 });
     // bent rail stubs + rocks at the lip
-    const stub = merge([box(0.22, 0.27, 5, C.steel).rotateX(-0.35).translate(-0.95, 1, 2.2), box(0.22, 0.27, 4, C.steel).rotateX(-0.2).rotateY(0.15).translate(0.95, 0.6, 1.8), sph(1.5, C.rock, 7, 5).translate(-9.5, -0.6, 2), sph(1.3, C.rockD, 7, 5).translate(9, -0.5, 2)]);
+    const stub = merge([box(0.22, 0.27, 5, C.steel).rotateX(-0.35).translate(-0.95, 1, 2.2), box(0.22, 0.27, 4, C.steel).rotateX(-0.2).rotateY(0.15).translate(0.95, 0.6, 1.8), blob(1.5, C.rock, 0.3, 2).translate(-9.5, -0.6, 2), blob(1.3, C.rockD, 0.3, 4).translate(9, -0.5, 2)]);
     const s = new THREE.Mesh(stub, MAT.solid); W.place(s, 39); s.userData.own = true;
     const stub2 = new THREE.Mesh(merge([box(0.22, 0.27, 4, C.steel).rotateX(0.25).translate(-0.95, 0.6, -1.6), box(0.22, 0.27, 5, C.steel).rotateX(0.35).translate(0.95, 0.9, -2)]), MAT.solid); W.place(stub2, 153); stub2.userData.own = true;
     for (const x of [-11, 11]) { const sg = new THREE.Mesh(M.warnSign(), MAT.solid); W.place(sg, 30, x); sg.userData.own = true; }
@@ -405,7 +407,7 @@ export const EVENTS = {
     P.cue(z + 40, a + 30, { o: [8.5, 1.5, 34], o2: [6.5, 1.3, 22], t: [0, 2.4, 0], fov: 40 }, 0);
     P.cue(a + 30, g0 - 14, { fix: (a + g0) / 2 + 20, o: [-44, -24, 0], t: [0, 2, 0], tback: 20, fov: 48 }, 0);
     P.cue(g0 - 14, g0 + 38, { back: 30, o: [-5, 4.8, -16], o2: [-9, 7, -6], t: [0, 2, 40], tback: 0, fov: 70 }, 0);
-    P.cue(g0 + 38, g1 + 90, { fix: zm, o: [205, 30, -60], o2: [200, 26, -20], t: [0, 0, 0], tback: 45, fov: 31, fov2: 27 }, 0);
+    P.cue(g0 + 38, g1 + 90, { fix: zm, o: [190, 84, -110], o2: [180, 70, -60], t: [0, -8, 0], tback: 45, fov: 36, fov2: 31 }, 0);
     P.slow(g0 + 30, g0 + 86, 0.3);
     P.mul(g1 + 8, 3, 'CANYON GAP');
     P.item(z, z + 680, (W) => {
